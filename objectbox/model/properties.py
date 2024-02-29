@@ -78,7 +78,16 @@ class IndexType(IntEnum):
 
 
 class Property:
-    def __init__(self, py_type: type, id: int, uid: int, type: PropertyType = None, index: bool = None, index_type: IndexType = None):
+    def __init__(
+        self,
+        py_type: type,
+        id: int,
+        uid: int,
+        property_flags: OBXPropertyFlags = None,
+        type: PropertyType = None,
+        index: bool = None,
+        index_type: IndexType = None,
+    ):
         self._id = id
         self._uid = uid
         self._name = ""  # set in Entity.fill_properties()
@@ -88,24 +97,27 @@ class Property:
         self._fb_type = fb_type_map[self._ob_type]
 
         self._is_id = isinstance(self, Id)
-        self._flags = OBXPropertyFlags(0)
+        self._flags = property_flags if property_flags != None else OBXPropertyFlags(0)
         self.__set_flags()
 
         # FlatBuffers marshalling information
         self._fb_slot = self._id - 1
-        self._fb_v_offset = 4 + 2*self._fb_slot
+        self._fb_v_offset = 4 + 2 * self._fb_slot
 
         if index_type:
             if index == True or index == None:
                 self._index = True
                 self._index_type = index_type
             elif index == False:
-                raise Exception(f"trying to set index type on property with id {self._id} while index is set to False")
+                raise Exception(
+                    f"trying to set index type on property with id {self._id} while index is set to False"
+                )
         else:
             self._index = index if index != None else False
             if index:
-                self._index_type = IndexType.value if self._py_type != str else IndexType.hash
-
+                self._index_type = (
+                    IndexType.value if self._py_type != str else IndexType.hash
+                )
 
     def __determine_ob_type(self) -> OBXPropertyType:
         ts = self._py_type
@@ -113,7 +125,9 @@ class Property:
             return OBXPropertyType_String
         elif ts == int:
             return OBXPropertyType_Long
-        elif ts == bytes:  # or ts == bytearray: might require further tests on read objects due to mutability
+        elif (
+            ts == bytes
+        ):  # or ts == bytearray: might require further tests on read objects due to mutability
             return OBXPropertyType_ByteVector
         elif ts == list or ts == np.ndarray:
             return OBXPropertyType_DoubleVector
@@ -128,39 +142,41 @@ class Property:
         if self._is_id:
             self._flags = OBXPropertyFlags_ID
 
-    def op(self, op: _ConditionOp, value, case_sensitive: bool = True) -> QueryCondition:
+    def op(
+        self, op: _ConditionOp, value, case_sensitive: bool = True
+    ) -> QueryCondition:
         return QueryCondition(self._id, op, value, case_sensitive)
 
     def equals(self, value, case_sensitive: bool = True) -> QueryCondition:
         return self.op(_ConditionOp.eq, value, case_sensitive)
-        
+
     def not_equals(self, value, case_sensitive: bool = True) -> QueryCondition:
         return self.op(_ConditionOp.notEq, value, case_sensitive)
-    
+
     def contains(self, value: str, case_sensitive: bool = True) -> QueryCondition:
         return self.op(_ConditionOp.contains, value, case_sensitive)
-    
+
     def starts_with(self, value: str, case_sensitive: bool = True) -> QueryCondition:
         return self.op(_ConditionOp.startsWith, value, case_sensitive)
-    
+
     def ends_with(self, value: str, case_sensitive: bool = True) -> QueryCondition:
         return self.op(_ConditionOp.endsWith, value, case_sensitive)
-    
+
     def greater_than(self, value, case_sensitive: bool = True) -> QueryCondition:
         return self.op(_ConditionOp.gt, value, case_sensitive)
-    
+
     def greater_or_equal(self, value, case_sensitive: bool = True) -> QueryCondition:
         return self.op(_ConditionOp.greaterOrEq, value, case_sensitive)
-    
+
     def less_than(self, value, case_sensitive: bool = True) -> QueryCondition:
         return self.op(_ConditionOp.lt, value, case_sensitive)
-    
+
     def less_or_equal(self, value, case_sensitive: bool = True) -> QueryCondition:
         return self.op(_ConditionOp.lessOrEq, value, case_sensitive)
-    
+
     def between(self, value_a, value_b) -> QueryCondition:
         return QueryCondition(self._id, _ConditionOp.between, value_a, value_b)
-    
+
 
 # ID property (primary key)
 class Id(Property):

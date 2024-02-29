@@ -14,11 +14,13 @@
 
 
 from objectbox.model.entity import _Entity
+from objectbox.model.properties import Property
 from objectbox.c import *
+import json
 
 
 class IdUid:
-    __slots__ = 'id', 'uid'
+    __slots__ = "id", "uid"
 
     def __init__(self, id: int, uid: int):
         self.id = id
@@ -35,36 +37,56 @@ class Model:
         self.last_entity_id = IdUid(0, 0)
         self.last_index_id = IdUid(0, 0)
         self.last_relation_id = IdUid(0, 0)
+        self.entity_classes = dict()
 
     def entity(self, entity: _Entity, last_property_id: IdUid):
         if not isinstance(entity, _Entity):
-            raise Exception("Given type is not an Entity. Are you passing an instance instead of a type or did you "
-                            "forget the '@Entity' annotation?")
+            raise Exception(
+                "Given type is not an Entity. Are you passing an instance instead of a type or did you "
+                "forget the '@Entity' annotation?"
+            )
 
         entity.last_property_id = last_property_id
 
-        obx_model_entity(self._c_model, c_str(
-            entity.name), entity.id, entity.uid)
+        obx_model_entity(self._c_model, c_str(entity.name), entity.id, entity.uid)
 
         for v in entity.properties:
-            obx_model_property(self._c_model, c_str(
-                v._name), v._ob_type, v._id, v._uid)
+            obx_model_property(self._c_model, c_str(v._name), v._ob_type, v._id, v._uid)
             if v._flags != 0:
                 obx_model_property_flags(self._c_model, v._flags)
 
         obx_model_entity_last_property_id(
-            self._c_model, last_property_id.id, last_property_id.uid)
+            self._c_model, last_property_id.id, last_property_id.uid
+        )
+        self.entity_classes[entity.name] = entity.cls
+
+    def get_classes(self, expand: bool = False):
+        class_names = list(self.entity_classes.keys())
+        if not expand:
+            return class_names
+        else:
+            class_attributes = {}
+            for _class in class_names:
+                class_attributes[_class] = [
+                    key
+                    for key, value in self.entity_classes[_class].__dict__.items()
+                    if type(value) == Property
+                ]
+            return class_attributes
 
     # called by Builder
     def _finish(self):
         if self.last_relation_id:
             obx_model_last_relation_id(
-                self._c_model, self.last_relation_id.id, self.last_relation_id.uid)
+                self._c_model, self.last_relation_id.id, self.last_relation_id.uid
+            )
 
         if self.last_index_id:
             obx_model_last_index_id(
-                self._c_model, self.last_index_id.id, self.last_index_id.uid)
+                self._c_model, self.last_index_id.id, self.last_index_id.uid
+            )
 
         if self.last_entity_id:
             obx_model_last_entity_id(
-                self._c_model, self.last_entity_id.id, self.last_entity_id.uid)
+                self._c_model, self.last_entity_id.id, self.last_entity_id.uid
+            )

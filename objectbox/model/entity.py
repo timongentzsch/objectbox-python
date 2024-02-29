@@ -28,12 +28,10 @@ class _Entity(object):
     def __init__(self, cls, id: int, uid: int):
         # currently, ID and UID are mandatory and are not fetched from the model.json
         if id <= 0:
-            raise Exception(
-                "invalid or no 'id; given in the @Entity annotation")
+            raise Exception("invalid or no 'id; given in the @Entity annotation")
 
         if uid <= 0:
-            raise Exception(
-                "invalid or no 'uid' given in the @Entity annotation")
+            raise Exception("invalid or no 'uid' given in the @Entity annotation")
 
         self.cls = cls
         self.name = cls.__name__
@@ -55,8 +53,9 @@ class _Entity(object):
         variables = dict(vars(self.cls))
 
         # filter only subclasses of Property
-        variables = {k: v for k, v in variables.items(
-        ) if issubclass(type(v), Property)}
+        variables = {
+            k: v for k, v in variables.items() if issubclass(type(v), Property)
+        }
 
         for k, prop in variables.items():
             prop._name = k
@@ -64,8 +63,10 @@ class _Entity(object):
 
             if prop._is_id:
                 if self.id_property:
-                    raise Exception("duplicate ID property: '%s' and '%s'" % (
-                        self.id_property._name, prop._name))
+                    raise Exception(
+                        "duplicate ID property: '%s' and '%s'"
+                        % (self.id_property._name, prop._name)
+                    )
                 self.id_property = prop
 
             if prop._fb_type == flatbuffers.number_types.UOffsetTFlags:
@@ -119,32 +120,48 @@ class _Entity(object):
         for prop in self.offset_properties:
             val = self.get_value(object, prop)
             if prop._ob_type == OBXPropertyType_String:
-                offsets[prop._id] = builder.CreateString(val.encode('utf-8'))
+                offsets[prop._id] = builder.CreateString(val.encode("utf-8"))
             elif prop._ob_type == OBXPropertyType_BoolVector:
                 # Using a numpy bool as it seems to be more consistent in terms of size. TBD
                 # https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.bool
-                offsets[prop._id] = builder.CreateNumpyVector(np.array(val, dtype=np.bool_))
+                offsets[prop._id] = builder.CreateNumpyVector(
+                    np.array(val, dtype=np.bool_)
+                )
             elif prop._ob_type == OBXPropertyType_ByteVector:
                 offsets[prop._id] = builder.CreateByteVector(val)
             elif prop._ob_type == OBXPropertyType_ShortVector:
-                offsets[prop._id] = builder.CreateNumpyVector(np.array(val, dtype=np.int16))
+                offsets[prop._id] = builder.CreateNumpyVector(
+                    np.array(val, dtype=np.int16)
+                )
             elif prop._ob_type == OBXPropertyType_CharVector:
-                offsets[prop._id] = builder.CreateNumpyVector(np.array(val, dtype=np.uint16))
+                offsets[prop._id] = builder.CreateNumpyVector(
+                    np.array(val, dtype=np.uint16)
+                )
             elif prop._ob_type == OBXPropertyType_IntVector:
-                offsets[prop._id] = builder.CreateNumpyVector(np.array(val, dtype=np.int32))
+                offsets[prop._id] = builder.CreateNumpyVector(
+                    np.array(val, dtype=np.int32)
+                )
             elif prop._ob_type == OBXPropertyType_LongVector:
-                offsets[prop._id] = builder.CreateNumpyVector(np.array(val, dtype=np.int64))
+                offsets[prop._id] = builder.CreateNumpyVector(
+                    np.array(val, dtype=np.int64)
+                )
             elif prop._ob_type == OBXPropertyType_FloatVector:
-                offsets[prop._id] = builder.CreateNumpyVector(np.array(val, dtype=np.float32))
+                offsets[prop._id] = builder.CreateNumpyVector(
+                    np.array(val, dtype=np.float32)
+                )
             elif prop._ob_type == OBXPropertyType_DoubleVector:
-                offsets[prop._id] = builder.CreateNumpyVector(np.array(val, dtype=np.float64))
+                offsets[prop._id] = builder.CreateNumpyVector(
+                    np.array(val, dtype=np.float64)
+                )
             elif prop._ob_type == OBXPropertyType_Flex:
                 flex_builder = flatbuffers.flexbuffers.Builder()
                 flex_builder.Add(val)
                 buffer = flex_builder.Finish()
                 offsets[prop._id] = builder.CreateByteVector(bytes(buffer))
             else:
-                assert False, "programming error - invalid type OB & FB type combination"
+                assert (
+                    False
+                ), "programming error - invalid type OB & FB type combination"
 
         # start the FlatBuffers object with the largest number of properties that were ever present in the Entity
         builder.StartObject(self.last_property_id.id)
@@ -159,7 +176,9 @@ class _Entity(object):
                 val = id if prop == self.id_property else self.get_value(object, prop)
                 if prop._ob_type == OBXPropertyType_Date:
                     if prop._py_type == datetime:
-                        val = val.timestamp() * 1000  # timestamp returns seconds, convert to milliseconds
+                        val = (
+                            val.timestamp() * 1000
+                        )  # timestamp returns seconds, convert to milliseconds
                     val = floor(val)  # use floor to allow for float types
                 elif prop._ob_type == OBXPropertyType_DateNano:
                     if prop._py_type == datetime:
@@ -184,9 +203,11 @@ class _Entity(object):
             o = table.Offset(prop._fb_v_offset)
             val = None
             if not o:
-                val = prop._py_type()  # use default (empty) value if not present in the object
+                val = (
+                    prop._py_type()
+                )  # use default (empty) value if not present in the object
             elif prop._ob_type == OBXPropertyType_String:
-                val = table.String(o + table.Pos).decode('utf-8')
+                val = table.String(o + table.Pos).decode("utf-8")
             elif prop._ob_type == OBXPropertyType_BoolVector:
                 val = table.GetVectorAsNumpy(flatbuffers.number_types.BoolFlags, o)
             elif prop._ob_type == OBXPropertyType_ByteVector:
@@ -194,17 +215,27 @@ class _Entity(object):
                 start = table.Vector(o)
                 size = table.VectorLen(o)
                 # slice the vector as a requested type
-                val = prop._py_type(table.Bytes[start:start+size])
+                val = prop._py_type(table.Bytes[start : start + size])
             elif prop._ob_type == OBXPropertyType_ShortVector:
                 val = table.GetVectorAsNumpy(flatbuffers.number_types.Int16Flags, o)
             elif prop._ob_type == OBXPropertyType_CharVector:
                 val = table.GetVectorAsNumpy(flatbuffers.number_types.Int16Flags, o)
             elif prop._ob_type == OBXPropertyType_Date and prop._py_type == datetime:
                 table_val = table.Get(prop._fb_type, o + table.Pos)
-                val = datetime.fromtimestamp(table_val/1000) if table_val != 0 else datetime.fromtimestamp(0)  # default timestamp
-            elif prop._ob_type == OBXPropertyType_DateNano and prop._py_type == datetime:
+                val = (
+                    datetime.fromtimestamp(table_val / 1000)
+                    if table_val != 0
+                    else datetime.fromtimestamp(0)
+                )  # default timestamp
+            elif (
+                prop._ob_type == OBXPropertyType_DateNano and prop._py_type == datetime
+            ):
                 table_val = table.Get(prop._fb_type, o + table.Pos)
-                val = datetime.fromtimestamp(table_val/1000000000) if table_val != 0 else datetime.fromtimestamp(0)  # default timestamp
+                val = (
+                    datetime.fromtimestamp(table_val / 1000000000)
+                    if table_val != 0
+                    else datetime.fromtimestamp(0)
+                )  # default timestamp
             elif prop._ob_type == OBXPropertyType_IntVector:
                 val = table.GetVectorAsNumpy(flatbuffers.number_types.Int32Flags, o)
             elif prop._ob_type == OBXPropertyType_LongVector:
@@ -218,7 +249,7 @@ class _Entity(object):
                 start = table.Vector(o)
                 size = table.VectorLen(o)
                 # slice the vector as bytes
-                buf = table.Bytes[start:start+size]
+                buf = table.Bytes[start : start + size]
                 val = flatbuffers.flexbuffers.Loads(buf)
             else:
                 val = table.Get(prop._fb_type, o + table.Pos)
@@ -233,6 +264,7 @@ def Entity(cls=None, id: int = 0, uid: int = 0):
     if cls:
         return _Entity(cls, id, uid)
     else:
+
         def wrapper(cls):
             return _Entity(cls, id, uid)
 
